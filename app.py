@@ -99,11 +99,11 @@ with st.expander("Model Summary and Latest Metrics"):
     st.markdown("## 📈 Latest Model Metrics")
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric("Monetary Conditions (R)", f"{r_score:.4f}")
+        st.metric("Monetary Conditions (R)", f"{r_score:.4f}" if isinstance(r_score, (int, float)) else r_score)
     with col2:
-        st.metric("Growth Conditions (G)", f"{g_score:.4f}")
+        st.metric("Growth Conditions (G)", f"{g_score:.4f}" if isinstance(g_score, (int, float)) else g_score)
     with col3:
-        st.metric("Difference (R - G)", f"{r_g_score_diff:.4f}")
+        st.metric("Difference (R - G)", f"{r_g_score_diff:.4f}" if isinstance(r_g_score_diff, (int, float)) else r_g_score_diff)
     
     st.markdown("### Model Overview")
     st.markdown("""
