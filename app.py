@@ -544,7 +544,7 @@ Structured Briefing Outline:
 """
         
         try:
-            response_economic_interpretation = openai.ChatCompletion.create(
+            response_economic_interpretation = openai.chat.completions.create(
                 model="gpt-4",
                 messages=[
                     {"role": "system", "content": "You are an expert macroeconomist providing quantitatively detailed, structured, and highly educational economic analyses."},
@@ -553,7 +553,7 @@ Structured Briefing Outline:
                 temperature=0.2,
                 max_tokens=3500
             )
-            expert_review_economic_interpretation = response_economic_interpretation["choices"][0]["message"]["content"]
+            expert_review_economic_interpretation = response_economic_interpretation.choices[0].message.content
             st.markdown("### 1. Economic Significance & Interpretation")
             st.markdown(expert_review_economic_interpretation)
         except Exception as e:
@@ -582,7 +582,7 @@ Structured Briefing Outline:
 """
         
         try:
-            response_calculation_methodology = openai.ChatCompletion.create(
+            response_calculation_methodology = openai.chat.completions.create(
                 model="gpt-4",
                 messages=[
                     {"role": "system", "content": "You are an expert macroeconomist providing quantitatively detailed, structured, and highly educational economic analyses."},
@@ -591,7 +591,7 @@ Structured Briefing Outline:
                 temperature=0.2,
                 max_tokens=3500
             )
-            expert_review_calculation_methodology = response_calculation_methodology["choices"][0]["message"]["content"]
+            expert_review_calculation_methodology = response_calculation_methodology.choices[0].message.content
             st.markdown("### 2. Calculation Methodology & Indicator Selection")
             st.markdown(expert_review_calculation_methodology)
         except Exception as e:
@@ -626,16 +626,16 @@ Historical Scores (Past 12 Months):
 """
         
         try:
-            response_historical_attribution = openai.ChatCompletion.create(
+            response_historical_attribution = openai.chat.completions.create(
                 model="gpt-4",
                 messages=[
-                    {"role": "system", "content": "You are an expert macroeconomist providing quantitatively detailed, structured, accurate, and educational economic analyses."},
+                    {"role": "system", "content": "You are an expert macroeconomist providing a highly detailed, structured briefing on the R-G Model, explicitly contrasting Monetary (R) and Growth (G) conditions."},
                     {"role": "user", "content": prompt_historical_attribution}
                 ],
                 temperature=0.2,
                 max_tokens=5000
             )
-            expert_review_historical_attribution = response_historical_attribution["choices"][0]["message"]["content"]
+            expert_review_historical_attribution = response_historical_attribution.choices[0].message.content
             st.markdown("### 3. Historical Trends & Attribution Analysis")
             st.markdown(expert_review_historical_attribution)
         except Exception as e:
@@ -663,7 +663,7 @@ Your response should be structured, insightful, and clearly incorporate the prov
 """
         
         try:
-            response_standard = openai.ChatCompletion.create(
+            response_standard = openai.chat.completions.create(
                 model="gpt-4",
                 messages=[
                     {"role": "system", "content": "You are an expert macroeconomist providing concise, structured, and actionable economic analyses and recommendations."},
@@ -672,7 +672,7 @@ Your response should be structured, insightful, and clearly incorporate the prov
                 temperature=0.3,
                 max_tokens=2000
             )
-            expert_review_standard = response_standard["choices"][0]["message"]["content"]
+            expert_review_standard = response_standard.choices[0].message.content
             st.markdown("### 4. Critical Methodology Evaluation & 5. Actionable Recommendations")
             st.markdown(expert_review_standard)
         except Exception as e:
