@@ -1,103 +1,168 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.graph_objects as go
-import plotly.subplots as sp
-import openai
 
-# Load API keys from Streamlit Secrets
-openai.api_key = st.secrets["openai"]["api_key"]
-FMP_API_KEY = st.secrets["fmp"]["api_key"]
 
-st.title("Comprehensive R-G Model Analysis")
+# Streamlit App title
+st.title("R-G Model Analysis")
 
-# File Upload
-uploaded_file = st.file_uploader("Upload Excel file with 'Tickers' and 'Hard' sheets", type="xlsx")
+# File uploader widget explicitly asking for Excel files
+uploaded_file = st.file_uploader(
+    "Upload Excel file with 'Tickers' and 'Hard' sheets", type="xlsx"
+)
 
 if uploaded_file:
-    xls = pd.ExcelFile(uploaded_file)
-    df_tickers = xls.parse("Tickers")
-    df_raw = xls.parse("Hard", header=None)
+    try:
+        # Load Excel file
+        xls = pd.ExcelFile(uploaded_file)
+        
+        # Read specific sheets
+        df_tickers = xls.parse("Tickers")
+        df_raw = xls.parse("Hard", header=None)
 
-    # Data Preparation
-    series_list = []
-    tickers = df_raw.iloc[0, 1::2].tolist()
+        # Displaying previews of sheets explicitly for user confirmation
+        st.subheader("Preview of 'Tickers' Sheet")
+        st.dataframe(df_tickers.head())
 
-    for i, ticker in enumerate(tickers):
-        dates = pd.to_datetime(df_raw.iloc[1:, i*2], errors='coerce')
-        values = pd.to_numeric(df_raw.iloc[1:, i*2+1], errors='coerce')
+    except Exception as e:
+        st.error(f"Error reading the Excel file: {e}")
 
-        df_series = pd.DataFrame({'Date': dates, ticker: values}).dropna(subset=['Date', ticker]).set_index('Date').resample('ME').ffill()
-        series_list.append(df_series)
+if uploaded_file:
+    try:
+        # --- Data Preparation ---
 
-    df_monthly = pd.concat(series_list, axis=1).sort_index().dropna(how='all')
+        # Extract tickers explicitly from df_raw (first row, every second column starting from index 1)
+        tickers = df_raw.iloc[0, 1::2].tolist()
 
-    # Define R and G variables explicitly
-    R_target = 'USOSFR10 Curncy'
-    G_target = 'GDP CQoQ Index'
+        series_list = []
 
-    R_vars = ['FEDL01 Index', 'PCEPILFE Index', 'CONSP5MD Index', 'ACMTP10  Index', 'USGGBE10 Index']
-    G_vars = ['CONSSENT Index', 'SBOICAPS Index', 'OUMFCEF  Index', 'NAPMNEWO Index', 'IP       Index', 'PAYEMS_PCH', 'VIX Index', 'LEI BP Index', 'PCE DEFM Index']
+        # Process each ticker explicitly
+        for i, ticker in enumerate(tickers):
+            dates = pd.to_datetime(df_raw.iloc[1:, i * 2], errors='coerce')
+            values = pd.to_numeric(df_raw.iloc[1:, i * 2 + 1], errors='coerce')
 
-    df_norm = df_monthly.copy()
+            # Create a monthly resampled DataFrame explicitly for each ticker
+            df_series = (
+                pd.DataFrame({'Date': dates, ticker: values})
+                .dropna(subset=['Date', ticker])
+                .set_index('Date')
+                .resample('ME')
+                .ffill()
+            )
 
-    short_names_map = df_tickers.set_index('Ticker')['Short_Name'].to_dict()
+            series_list.append(df_series)
 
-    # Weight calculations
-    def calculate_weights(df, target, vars):
-        dep_var = df[target].shift(-1)
-        weights, correlations, betas = {}, {}, {}
-        for var in vars:
-            X = df[var].dropna()
-            Y = dep_var.loc[X.index].dropna()
-            aligned_idx = X.index.intersection(Y.index)
-            coef = np.cov(X.loc[aligned_idx], Y.loc[aligned_idx])[0, 1] / np.var(X.loc[aligned_idx])
-            corr = np.corrcoef(X.loc[aligned_idx], Y.loc[aligned_idx])[0, 1]
-            weights[var] = coef
-            correlations[var] = corr
-            betas[var] = coef
-        total = sum(abs(w) for w in weights.values())
-        normalized_weights = {k: v / total for k, v in weights.items()}
-        return correlations, betas, normalized_weights
+        # Combine all tickers into one DataFrame explicitly
+        df_monthly = pd.concat(series_list, axis=1).sort_index().dropna(how='all')
 
-    correlations_R, betas_R, weights_R = calculate_weights(df_norm, R_target, R_vars)
-    correlations_G, betas_G, weights_G = calculate_weights(df_norm, G_target, G_vars)
 
-    # Corrected comprehensive tables
-    st.subheader("R Variables Analysis")
-    df_R = pd.DataFrame({
-        'Short_Name': [short_names_map.get(var, var) for var in R_vars],
-        'Correlation with R_target': [correlations_R[var] for var in R_vars],
-        'Coefficient (Beta) with R_target': [betas_R[var] for var in R_vars],
-        'Weight': [weights_R[var] for var in R_vars]
-    }).sort_values(by='Correlation with R_target', ascending=False)
-    st.dataframe(df_R)
+        # --- Explicit Z-score Normalization ---
 
-    st.subheader("G Variables Analysis")
-    df_G = pd.DataFrame({
-        'Short_Name': [short_names_map.get(var, var) for var in G_vars],
-        'Correlation with G_target': [correlations_G[var] for var in G_vars],
-        'Coefficient (Beta) with G_target': [betas_G[var] for var in G_vars],
-        'Weight': [weights_G[var] for var in G_vars]
-    }).sort_values(by='Correlation with G_target', ascending=False)
-    st.dataframe(df_G)
+        # Explicitly define a normalization function
+        def zscore_normalize(df, window=120):
+            return df.rolling(window, min_periods=1).apply(
+                lambda x: (x[-1] - np.mean(x)) / np.std(x) if np.std(x) else 0,
+                raw=False
+            )
 
-    # Replace old plot with new plots
-    # Financial Conditions Plot (Enhanced)
-    fig_financial_conditions = go.Figure()
-    fig_financial_conditions.add_trace(go.Scatter(x=df_norm.index, y=df_norm['R_score'], mode='lines', line=dict(color='#E15759'), name='Net R'))
-    fig_financial_conditions.add_trace(go.Scatter(x=df_norm.index, y=df_norm['G_score'], mode='lines', line=dict(color='#59A14F'), name='Net G'))
+        df_norm = zscore_normalize(df_monthly)
 
-    st.plotly_chart(fig_financial_conditions, use_container_width=True)
+    except Exception as e:
+        st.error(f"Error during data preparation: {e}")
 
-    # Include your additional custom plots (Monetary Conditions Attribution and Growth Conditions Attribution)
-    # Monetary Conditions Attribution
-    fig_monetary_conditions = go.Figure()
-    # Add plot construction logic here based on user's provided detailed scripts
-    st.plotly_chart(fig_monetary_conditions, use_container_width=True)
+# === Financial Conditions Plot (Enhanced) ===
+fig_financial_conditions = go.Figure()
 
-    # Growth Conditions Attribution
-    fig_growth_conditions = go.Figure()
-    # Add plot construction logic here based on user's provided detailed scripts
-    st.plotly_chart(fig_growth_conditions, use_container_width=True)
+color_tightening = '#E15759'
+color_loosening = '#59A14F'
+
+# Net R Score
+fig_financial_conditions.add_trace(go.Scatter(
+    x=df_norm.index, 
+    y=df_norm['R_score'], 
+    mode='lines',
+    line=dict(color=color_tightening), 
+    name='Net R'
+))
+
+# Net G Score
+fig_financial_conditions.add_trace(go.Scatter(
+    x=df_norm.index, 
+    y=df_norm['G_score'], 
+    mode='lines',
+    line=dict(color=color_loosening), 
+    name='Net G'
+))
+
+# 6-month moving averages
+window_ma = 6
+fig_financial_conditions.add_trace(go.Scatter(
+    x=df_norm.index,
+    y=df_norm['R_score'].rolling(window=window_ma).mean(),
+    mode='lines',
+    line=dict(color=color_tightening, dash='dot'),
+    name='Net R MA (6-month)'
+))
+
+fig_financial_conditions.add_trace(go.Scatter(
+    x=df_norm.index,
+    y=df_norm['G_score'].rolling(window=window_ma).mean(),
+    mode='lines',
+    line=dict(color=color_loosening, dash='dot'),
+    name='Net G MA (6-month)'
+))
+
+# Shaded areas for tightening and loosening
+current_state = df_norm['R_score'].iloc[0] > df_norm['G_score'].iloc[0]
+segment_x, segment_upper, segment_lower = [], [], []
+
+for date, r_score, g_score in zip(df_norm.index, df_norm['R_score'], df_norm['G_score']):
+    tightening = r_score > g_score
+    upper, lower = max(r_score, g_score), min(r_score, g_score)
+
+    if tightening != current_state and segment_x:
+        color = 'rgba(225,87,89,0.3)' if current_state else 'rgba(89,161,79,0.3)'
+        fig_financial_conditions.add_trace(go.Scatter(
+            x=segment_x + segment_x[::-1], 
+            y=segment_upper + segment_lower[::-1],
+            fill='toself', 
+            fillcolor=color, 
+            mode='none', 
+            showlegend=False
+        ))
+        segment_x, segment_upper, segment_lower = [], [], []
+        current_state = tightening
+
+    segment_x.append(date)
+    segment_upper.append(upper)
+    segment_lower.append(lower)
+
+# Final shaded segment
+color = 'rgba(225,87,89,0.3)' if current_state else 'rgba(89,161,79,0.3)'
+fig_financial_conditions.add_trace(go.Scatter(
+    x=segment_x + segment_x[::-1], 
+    y=segment_upper + segment_lower[::-1],
+    fill='toself', 
+    fillcolor=color, 
+    mode='none', 
+    showlegend=False
+))
+
+# Layout adjustments for clarity
+fig_financial_conditions.update_yaxes(
+    showgrid=True, 
+    gridcolor='lightgray', 
+    zeroline=True, 
+    zerolinewidth=2, 
+    zerolinecolor='gray'
+)
+
+fig_financial_conditions.update_layout(
+    title='Financial Conditions: Net R and G Scores',
+    plot_bgcolor='white',
+    hovermode='x unified',
+    legend_title_text='Legend'
+)
+
+st.plotly_chart(fig_financial_conditions, use_container_width=True)
 
