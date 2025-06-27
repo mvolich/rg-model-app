@@ -3,12 +3,22 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import openai
 
 st.set_page_config(page_title="R-G Model Streamlit App", layout="wide")
 st.title("R-G Financial Conditions Model")
 
-# --- Sidebar for file upload ---
+# --- Sidebar for file upload and OpenAI key ---
 st.sidebar.header("Configuration")
+
+# OpenAI API Key (from secrets or sidebar input)
+def get_openai_api_key():
+    try:
+        return st.secrets["openai"]["api_key"]
+    except Exception:
+        return st.sidebar.text_input("OpenAI API Key", type="password")
+
+openai_api_key = get_openai_api_key()
 
 # File uploader
 uploaded_file = st.sidebar.file_uploader("Upload Excel file", type=["xlsx"])
@@ -79,33 +89,41 @@ if 'GDP_CQoQ_Monthly' in df_monthly:
     df_norm['GDP_CQoQ_Monthly'] = df_monthly['GDP_CQoQ_Monthly']
 df_norm.dropna(inplace=True)
 
-# --- Weights Calculation ---
-dependent_var_R = df_norm[R_target].shift(-1)
-weights_R = {}
-for var in R_vars:
-    X, Y_aligned = df_norm[var].dropna(), dependent_var_R.loc[df_norm[var].dropna().index]
-    valid_idx = Y_aligned.dropna().index.intersection(X.index)
-    coef = np.cov(X.loc[valid_idx], Y_aligned.loc[valid_idx])[0, 1] / np.var(X.loc[valid_idx])
-    weights_R[var] = coef
-weights_sum_R = sum(abs(w) for w in weights_R.values())
-weights_R = {k: v / weights_sum_R for k, v in weights_R.items()}
-dependent_var_G = df_norm['GDP_CQoQ_Monthly'].shift(-1)
-weights_G = {}
-for var in G_vars:
-    X, Y_aligned = df_norm[var].dropna(), dependent_var_G.loc[df_norm[var].dropna().index]
-    valid_idx = Y_aligned.dropna().index.intersection(X.index)
-    coef = np.cov(X.loc[valid_idx], Y_aligned.loc[valid_idx])[0, 1] / np.var(X.loc[valid_idx])
-    weights_G[var] = coef
-weights_sum_G = sum(abs(w) for w in weights_G.values())
-weights_G = {k: v / weights_sum_G for k, v in weights_G.items()}
-df_norm['R_score'] = df_norm[R_vars].mul(pd.Series(weights_R)).sum(axis=1)
-df_norm['G_score'] = df_norm[G_vars].mul(pd.Series(weights_G)).sum(axis=1)
-df_weights_R = pd.DataFrame.from_dict(weights_R, orient='index', columns=['Weight'])
-df_weights_R['Short_Name'] = df_weights_R.index.map(short_names_map)
-df_weights_R_sorted = df_weights_R[['Short_Name', 'Weight']].sort_values('Weight', ascending=False)
-df_weights_G = pd.DataFrame.from_dict(weights_G, orient='index', columns=['Weight'])
-df_weights_G['Short_Name'] = df_weights_G.index.map(short_names_map)
-df_weights_G_sorted = df_weights_G[['Short_Name', 'Weight']].sort_values('Weight', ascending=False)
+# --- Model Summary ---
+with st.expander("Model Summary and Latest Metrics"):
+    latest_metrics = df_norm.iloc[-1].to_dict()
+    r_score = latest_metrics.get('R_score', 'Not available')
+    g_score = latest_metrics.get('G_score', 'Not available')
+    r_g_score_diff = r_score - g_score if isinstance(r_score, (int, float)) else 'Not available'
+    
+    st.markdown("## 📈 Latest Model Metrics")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Monetary Conditions (R)", f"{r_score:.4f}")
+    with col2:
+        st.metric("Growth Conditions (G)", f"{g_score:.4f}")
+    with col3:
+        st.metric("Difference (R - G)", f"{r_g_score_diff:.4f}")
+    
+    st.markdown("### Model Overview")
+    st.markdown("""
+    The R-G financial conditions model provides insights into monetary and growth economic conditions:
+    
+    **Monetary Conditions (R):**
+    - Reflect monetary tightening using indicators such as interest rates, liquidity, volatility, and credit spreads
+    - Weighted using regression analysis with the US 10-Year Swap Rate as the target indicator
+    
+    **Growth Conditions (G):**
+    - Reflect economic activity, including employment metrics, consumer confidence, and production indices
+    - Weighted using regression analysis with monthly interpolated GDP growth as the target indicator
+    
+    **Data Processing:**
+    - Monthly resampling, forward-filling, and Z-score normalization over a 120-month rolling window
+    - A positive R-G difference indicates tighter monetary conditions relative to economic growth
+    """)
+    
+    st.markdown("### Historical Context (Last 12 Months)")
+    st.dataframe(df_norm[['R_score', 'G_score']].tail(12))
 
 # --- Table of R_vars Correlation, Coefficient (Beta), and Weights ---
 R_correlations = df_norm[R_vars].corrwith(df_norm[R_target])
@@ -125,7 +143,7 @@ R_table_data = {
     'Weight': pd.Series(weights_R)
 }
 df_R_table_full = pd.DataFrame(R_table_data)
-df_R_table_full['Short_Name'] = df_R_table_full.index.map(short_names_map)
+df_R_table_full['Short_Name'] = df_R_table_full.index.map(df_tickers.set_index('Ticker')['Short_Name'].to_dict())
 df_R_table_full = df_R_table_full[['Short_Name', 'Correlation with R_target', 'Coefficient (Beta) with R_target', 'Weight']].sort_values('Correlation with R_target', ascending=False)
 with st.expander("Table of R_vars Correlation, Coefficient (Beta) with R_target, and their Weights"):
     st.dataframe(df_R_table_full)
@@ -148,32 +166,10 @@ G_table_data_full = {
     'Weight': pd.Series(weights_G)
 }
 df_G_table_full = pd.DataFrame(G_table_data_full)
-df_G_table_full['Short_Name'] = df_G_table_full.index.map(short_names_map)
+df_G_table_full['Short_Name'] = df_G_table_full.index.map(df_tickers.set_index('Ticker')['Short_Name'].to_dict())
 df_G_table_full = df_G_table_full[['Short_Name', 'Correlation with G_target', 'Coefficient (Beta) with G_target', 'Weight']].sort_values('Correlation with G_target', ascending=False)
 with st.expander("Table of G_vars Correlation, Coefficient (Beta) with G_target, and their Weights"):
     st.dataframe(df_G_table_full)
-
-# --- R Variables Plot ---
-with st.expander("Normalized R Variables and R_target Over Time"):
-    fig_R = go.Figure()
-    for var in R_vars:
-        if var in df_norm.columns:
-            fig_R.add_trace(go.Scatter(x=df_norm.index, y=df_norm[var], mode='lines', name=short_names_map.get(var, var)))
-    if R_target in df_norm.columns:
-        fig_R.add_trace(go.Scatter(x=df_norm.index, y=df_norm[R_target], mode='lines', name=short_names_map.get(R_target, R_target), line=dict(color='red', dash='dash')))
-    fig_R.update_layout(title='Normalized R Variables and R_target Over Time', xaxis_title='Date', yaxis_title='Normalized Value', hovermode='x unified')
-    st.plotly_chart(fig_R, use_container_width=True)
-
-# --- G Variables Plot ---
-with st.expander("Normalized G Variables and Imputed GDP Over Time"):
-    fig_G = go.Figure()
-    for var in G_vars:
-        if var in df_norm.columns:
-            fig_G.add_trace(go.Scatter(x=df_norm.index, y=df_norm[var], mode='lines', name=short_names_map.get(var, var)))
-    if 'GDP_CQoQ_Monthly' in df_norm.columns:
-        fig_G.add_trace(go.Scatter(x=df_norm.index, y=df_norm['GDP_CQoQ_Monthly'], mode='lines', name=short_names_map.get(G_target, G_target) + ' (Imputed)', line=dict(color='red', dash='dash')))
-    fig_G.update_layout(title='Normalized G Variables and Imputed GDP Over Time', xaxis_title='Date', yaxis_title='Normalized Value', hovermode='x unified')
-    st.plotly_chart(fig_G, use_container_width=True)
 
 # --- Financial Conditions Plot ---
 with st.expander("Financial Conditions: Net R and G Scores"):
@@ -463,38 +459,215 @@ with st.expander("Comprehensive Dashboard (All Charts)"):
     
     st.plotly_chart(fig, use_container_width=True)
 
-# --- Model Summary ---
-with st.expander("Model Summary and Latest Metrics"):
-    latest_metrics = df_norm.iloc[-1].to_dict()
-    r_score = latest_metrics.get('R_score', 'Not available')
-    g_score = latest_metrics.get('G_score', 'Not available')
-    r_g_score_diff = r_score - g_score if isinstance(r_score, (int, float)) else 'Not available'
-    
-    st.markdown("## 📈 Latest Model Metrics")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Monetary Conditions (R)", f"{r_score:.4f}")
-    with col2:
-        st.metric("Growth Conditions (G)", f"{g_score:.4f}")
-    with col3:
-        st.metric("Difference (R - G)", f"{r_g_score_diff:.4f}")
-    
-    st.markdown("### Model Overview")
-    st.markdown("""
-    The R-G financial conditions model provides insights into monetary and growth economic conditions:
-    
-    **Monetary Conditions (R):**
-    - Reflect monetary tightening using indicators such as interest rates, liquidity, volatility, and credit spreads
-    - Weighted using regression analysis with the US 10-Year Swap Rate as the target indicator
-    
-    **Growth Conditions (G):**
-    - Reflect economic activity, including employment metrics, consumer confidence, and production indices
-    - Weighted using regression analysis with monthly interpolated GDP growth as the target indicator
-    
-    **Data Processing:**
-    - Monthly resampling, forward-filling, and Z-score normalization over a 120-month rolling window
-    - A positive R-G difference indicates tighter monetary conditions relative to economic growth
-    """)
-    
-    st.markdown("### Historical Context (Last 12 Months)")
-    st.dataframe(df_norm[['R_score', 'G_score']].tail(12)) 
+# --- GenAI Expert Review Section (OpenAI GPT-4) ---
+with st.expander("AI Expert Review and Model Analysis (OpenAI GPT-4)"):
+    if not openai_api_key:
+        st.warning("Please enter your OpenAI API key in the sidebar or Streamlit secrets to enable expert review.")
+    else:
+        openai.api_key = openai_api_key
+        # Methodology Summary
+        methodology_summary = """
+Model Overview:
+
+The R-G financial conditions model provides insights into monetary and growth economic conditions:
+
+Monetary Conditions (R):
+Reflect monetary tightening using indicators such as interest rates, liquidity, volatility, and credit spreads.
+Weighted using regression analysis with the US 10-Year Swap Rate as the target indicator.
+
+Growth Conditions (G):
+Reflect economic activity, including employment metrics, consumer confidence, and production indices.
+Weighted using regression analysis with monthly interpolated GDP growth as the target indicator.
+
+Data undergoes monthly resampling, forward-filling, and Z-score normalization over a 120-month rolling window.
+"""
+        # Latest Metrics
+        latest_metrics = df_norm.iloc[-1].to_dict()
+        r_score = latest_metrics.get('R_score', 'Not available')
+        g_score = latest_metrics.get('G_score', 'Not available')
+        r_g_score_diff = r_score - g_score if isinstance(r_score, (int, float)) else 'Not available'
+        metrics_summary = f"""
+📈 Latest Model Metrics:
+
+| Metric                    | Score   |
+|---------------------------|---------|
+| Monetary Conditions (R)   | {r_score:.4f} |
+| Growth Conditions (G)     | {g_score:.4f} |
+| Difference (R - G)        | {r_g_score_diff:.4f} |
+
+A positive R-G difference indicates tighter monetary conditions relative to economic growth.
+"""
+        # Historical Attribution
+        historical_scores = df_norm[['R_score', 'G_score']].tail(12).to_markdown()
+        historical_summary = f"""
+📊 Historical Context (Last 12 Months):
+
+{historical_scores}
+"""
+        # Regression Weights
+        weights_R_table = df_weights_R_sorted.to_markdown()
+        weights_G_table = df_weights_G_sorted.to_markdown()
+        regression_summary = f"""
+🔍 Regression Analysis Findings:
+
+Monetary Conditions (R) - Variable Weights:
+{weights_R_table}
+
+Growth Conditions (G) - Variable Weights:
+{weights_G_table}
+
+These regression results clearly highlight key indicators influencing monetary and growth conditions.
+"""
+        # Indicator Short Names
+        short_names_dict = df_tickers.set_index('Ticker')['Short_Name'].to_dict()
+        indicator_details = '\n'.join([f"- {ticker}: {name}" for ticker, name in short_names_dict.items()])
+        indicator_summary = f"""
+📚 Indicator Guide:
+{indicator_details}
+"""
+        # Economic Significance & Interpretation Query
+        prompt_economic_interpretation = f"""
+You are a PhD-level macroeconomist providing a highly detailed, structured briefing on the R-G Model, explicitly contrasting Monetary (R) and Growth (G) conditions.
+
+{methodology_summary}
+
+{metrics_summary}
+
+{indicator_summary}
+
+Structured Briefing Outline:
+
+1. Economic Significance & Interpretation (Quantitative Detail):
+   - Summarise the Model explicitly.
+   - Clearly explain the economic significance of R, G, and the R-G difference explicitly.
+   - Provide intuitive explanations supported explicitly by recent quantitative data (latest metrics, historical values, regression weights).
+   - Illustrate explicitly the implications of positive vs. negative R-G differences using current numerical examples.
+"""
+        try:
+            response_economic_interpretation = openai.ChatCompletion.create(
+                model="gpt-4",
+                messages=[
+                    {"role": "system", "content": "You are an expert macroeconomist providing quantitatively detailed, structured, and highly educational economic analyses."},
+                    {"role": "user", "content": prompt_economic_interpretation}
+                ],
+                temperature=0.2,
+                max_tokens=3500
+            )
+            expert_review_economic_interpretation = response_economic_interpretation["choices"][0]["message"]["content"]
+            st.markdown("### 1. Economic Significance & Interpretation")
+            st.markdown(expert_review_economic_interpretation)
+        except Exception as e:
+            st.error(f"OpenAI API error: {e}")
+        # Calculation Methodology & Indicator Selection Query
+        prompt_calculation_methodology = f"""
+You are a PhD-level macroeconomist writing a highly detailed, structured briefing on the R-G Model, explicitly contrasting Monetary (R) and Growth (G) conditions.
+
+{methodology_summary}
+
+{metrics_summary}
+
+{historical_summary}
+
+{regression_summary}
+
+{indicator_summary}
+
+Structured Briefing Outline:
+
+2. Calculation Methodology & Indicator Selection (Quantitative Detail):
+   - Clearly outline the regression-based weighting method for both R and G indicators, explicitly referencing the provided regression weights tables.
+   - Provide a detailed rationale for selecting each indicator, emphasizing their quantitative contributions explicitly.
+   - Explicitly explain the normalization approach (Z-score normalization with a 120-month rolling window) and its economic rationale.
+"""
+        try:
+            response_calculation_methodology = openai.ChatCompletion.create(
+                model="gpt-4",
+                messages=[
+                    {"role": "system", "content": "You are an expert macroeconomist providing quantitatively detailed, structured, and highly educational economic analyses."},
+                    {"role": "user", "content": prompt_calculation_methodology}
+                ],
+                temperature=0.2,
+                max_tokens=3500
+            )
+            expert_review_calculation_methodology = response_calculation_methodology["choices"][0]["message"]["content"]
+            st.markdown("### 2. Calculation Methodology & Indicator Selection")
+            st.markdown(expert_review_calculation_methodology)
+        except Exception as e:
+            st.error(f"OpenAI API error: {e}")
+        # Historical Trends & Attribution Analysis Query
+        expanded_historical_summary = df_norm[['R_score', 'G_score']].tail(12).to_markdown()
+        expanded_regression_summary = f"""
+Top Monetary Conditions:
+{df_weights_R_sorted.head(5).to_markdown()}
+
+Top Growth Conditions:
+{df_weights_G_sorted.head(5).to_markdown()}
+"""
+        prompt_historical_attribution = f"""
+You are a PhD-level macroeconomist providing a highly detailed, structured briefing on the R-G Model, explicitly contrasting Monetary (R) and Growth (G) conditions.
+
+{expanded_regression_summary}
+
+Historical Scores (Past 12 Months):
+{expanded_historical_summary}
+
+📖 Structured Briefing Outline (Part 3):
+
+3. Historical Trends & Attribution Analysis:
+   - Explicitly identify key periods (past 12 months) with significant shifts in R, G, and R-G scores.
+   - Explicitly quantify and discuss main contributing indicators using provided regression weights.
+   - Clearly highlight indicators driving major shifts, providing numeric comparisons and contributions.
+   - Explicitly reference months of highest and lowest scores, and largest R-G shifts.
+   - Provide detailed analysis of economic implications of observed trends.
+"""
+        try:
+            response_historical_attribution = openai.ChatCompletion.create(
+                model="gpt-4",
+                messages=[
+                    {"role": "system", "content": "You are an expert macroeconomist providing quantitatively detailed, structured, accurate, and educational economic analyses."},
+                    {"role": "user", "content": prompt_historical_attribution}
+                ],
+                temperature=0.2,
+                max_tokens=5000
+            )
+            expert_review_historical_attribution = response_historical_attribution["choices"][0]["message"]["content"]
+            st.markdown("### 3. Historical Trends & Attribution Analysis")
+            st.markdown(expert_review_historical_attribution)
+        except Exception as e:
+            st.error(f"OpenAI API error: {e}")
+        # Critical Methodology Evaluation & Recommendations Query
+        prompt_standard = f"""
+You are a PhD-level macroeconomist providing a concise and practical evaluation and recommendations for the R-G Model, based on the provided methodology and regression results.
+
+{methodology_summary}
+
+{regression_summary}
+
+Structured Briefing Outline:
+
+4. Critical Methodology Evaluation (Concise)
+
+Provide a concise evaluation of indicator selection, normalization, and regression target suitability.
+
+5. Actionable Recommendations (Concise & Direct)
+
+Suggest clear, actionable methodological improvements to enhance model accuracy, interpretability, and predictive power, supported by economic rationale.
+
+Your response should be structured, insightful, and clearly incorporate the provided regression findings.
+"""
+        try:
+            response_standard = openai.ChatCompletion.create(
+                model="gpt-4",
+                messages=[
+                    {"role": "system", "content": "You are an expert macroeconomist providing concise, structured, and actionable economic analyses and recommendations."},
+                    {"role": "user", "content": prompt_standard}
+                ],
+                temperature=0.3,
+                max_tokens=2000
+            )
+            expert_review_standard = response_standard["choices"][0]["message"]["content"]
+            st.markdown("### 4. Critical Methodology Evaluation & 5. Actionable Recommendations")
+            st.markdown(expert_review_standard)
+        except Exception as e:
+            st.error(f"OpenAI API error: {e}")
+
