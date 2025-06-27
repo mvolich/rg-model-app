@@ -48,14 +48,6 @@ usosfr10_df = pd.DataFrame({
 }).dropna(subset=['Date']).set_index('Date').resample('ME').ffill()
 df_monthly['USOSFR10 Curncy'] = usosfr10_df['USOSFR10 Curncy']
 
-# --- Plot Monthly Data ---
-with st.expander("Monthly Data Over Time Plot"):
-    fig = go.Figure()
-    for col in df_monthly.columns:
-        fig.add_trace(go.Scatter(x=df_monthly.index, y=df_monthly[col], mode='lines', name=col))
-    fig.update_layout(title='Monthly Data Over Time', xaxis_title='Date', yaxis_title='Value', hovermode='x unified')
-    st.plotly_chart(fig, use_container_width=True)
-
 # --- Identify R and G Variables ---
 R_target = 'USOSFR10 Curncy'
 G_target = 'GDP CQoQ Index'
@@ -86,16 +78,6 @@ df_norm[pct_change_vars] = df_monthly[pct_change_vars]
 if 'GDP_CQoQ_Monthly' in df_monthly:
     df_norm['GDP_CQoQ_Monthly'] = df_monthly['GDP_CQoQ_Monthly']
 df_norm.dropna(inplace=True)
-
-# --- Correlation Matrix ---
-correlation_matrix = df_norm.corr()
-short_names_map = df_tickers.set_index('Ticker')['Short_Name'].to_dict()
-short_names_map = {ticker: name for ticker, name in short_names_map.items() if ticker in correlation_matrix.columns}
-short_names_list = [short_names_map.get(col, col) for col in correlation_matrix.columns]
-with st.expander("Correlation Matrix of Normalized Data"):
-    fig = go.Figure(data=go.Heatmap(z=correlation_matrix.values, x=short_names_list, y=short_names_list, colorscale='Viridis'))
-    fig.update_layout(title='Correlation Matrix of Normalized Data', xaxis_title='Variables', yaxis_title='Variables', xaxis=dict(tickangle=-45), yaxis=dict(autorange='reversed'))
-    st.plotly_chart(fig, use_container_width=True)
 
 # --- Weights Calculation ---
 dependent_var_R = df_norm[R_target].shift(-1)
