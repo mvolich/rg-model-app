@@ -4,11 +4,113 @@ import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import openai
+import base64
+import os
 
-st.set_page_config(page_title="R-G Model Streamlit App", layout="wide")
-st.title("R-G Financial Conditions Model")
+st.set_page_config(
+    page_title="R-G Model",
+    layout="wide",
+    page_icon="https://rubricsam.com/wp-content/uploads/2021/01/cropped-rubrics-logo-tight.png",
+)
+
+def inject_brand_css():
+    st.markdown("""
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+      :root{
+        --rb-blue:#001E4F; --rb-mblue:#2C5697; --rb-lblue:#7BA4DB;
+        --rb-grey:#D8D7DF; --rb-orange:#CF4520;
+      }
+      html, body, .stApp { background:#f8f9fa; color:#0b0c0c;
+        font-family:Inter, "Segoe UI", Roboto, Arial, sans-serif !important; }
+      header[data-testid="stHeader"] { background: transparent !important; }
+
+      /* Header layout shared by RG & ROAM */
+      .rb-header { display:flex; align-items:flex-start; justify-content:space-between;
+        gap:12px; margin: 0 0 12px 0; }
+      .rb-title h1 { font-size:2.6rem; color:var(--rb-blue); font-weight:700; margin:0; }
+      .rb-sub { color:#4c566a; font-weight:600; margin-top:.25rem; }
+      .rb-logo img { height:48px; display:block; }
+      @media (max-width:1200px){ .rb-title h1{ font-size:2.2rem; } .rb-logo img{ height:42px; } }
+
+      /* Tabs */
+      .stTabs [data-baseweb="tab-list"]{ gap:12px; border-bottom:none; }
+      .stTabs [data-baseweb="tab"]{
+        background:var(--rb-grey); border-radius:4px 4px 0 0;
+        color:var(--rb-blue); font-weight:600; min-width:180px; text-align:center; padding:8px 16px;
+      }
+      .stTabs [aria-selected="true"]{
+        background:var(--rb-mblue)!important; color:#fff!important;
+        border-bottom:3px solid var(--rb-orange)!important;
+      }
+
+      /* Buttons */
+      .stButton > button, .stDownloadButton > button {
+        background:var(--rb-mblue); color:#fff; border:none; border-radius:4px;
+        padding:8px 16px; font-weight:600;
+      }
+      .stButton > button:hover, .stDownloadButton > button:hover { background:var(--rb-blue); }
+
+      /* Inputs/selects (keep light, legible) */
+      div[data-baseweb="select"] > div {
+        background:#fff !important; border:1px solid var(--rb-grey);
+        border-radius:4px; color:#000;
+      }
+      div[data-baseweb="select"] > div:hover { border-color: var(--rb-mblue); }
+
+      /* Sidebar hygiene */
+      [data-testid="stSidebar"] { min-height:100vh!important; height:auto!important; overflow-y:visible!important; }
+      [data-testid="stSidebarContent"] { min-height:100vh!important; height:auto!important; }
+    </style>
+    """, unsafe_allow_html=True)
+
+def _logo_src():
+    # Prefer a local asset if present
+    for p in ("assets/rubrics_logo.png", "assets/rubrics_logo.svg", "rubrics_logo.png"):
+        if os.path.exists(p):
+            with open(p, "rb") as f:
+                b64 = base64.b64encode(f.read()).decode("ascii")
+                ext = "svg+xml" if p.endswith(".svg") else "png"
+                return f"data:image/{ext};base64,{b64}"
+    # Fallback to hosted
+    return "https://rubricsam.com/wp-content/uploads/2021/01/cropped-rubrics-logo-tight.png"
+
+def render_brand_header(title="R-G Model", subtitle=None, href="https://rubricsam.com"):
+    src = _logo_src()
+    st.markdown(f"""
+    <div class="rb-header">
+      <div class="rb-title">
+        <h1>{title}</h1>
+        {f'<div class="rb-sub">{subtitle}</div>' if subtitle else ''}
+      </div>
+      <a class="rb-logo" href="{href}" target="_blank" rel="noopener">
+        <img src="{src}" alt="Rubrics"/>
+      </a>
+    </div>
+    """, unsafe_allow_html=True)
+
+def apply_rubrics_plot_fonts(fig):
+    # DO NOT change any trace colors. Fonts/background only.
+    fig.update_layout(
+        font=dict(family='Inter, "Segoe UI", Roboto, Arial, sans-serif', size=13, color="#0b0c0c"),
+        paper_bgcolor="#FFFFFF",
+        plot_bgcolor="#FFFFFF",
+        title=dict(font=dict(size=16))
+    )
+    return fig
+
+inject_brand_css()
+
+render_brand_header(
+    title="R-G Model",
+    subtitle="Regime-Guided Financial Conditions & Attribution"
+)
 
 # --- Sidebar for API keys and file upload ---
+st.sidebar.markdown(
+    f'<div style="padding:4px 0 12px 0;"><img src="{_logo_src()}" alt="Rubrics" style="width:100%; max-width:180px;"></div>',
+    unsafe_allow_html=True
+)
 st.sidebar.header("Configuration")
 
 # OpenAI API Key
@@ -189,7 +291,7 @@ with st.expander("Financial Conditions: Net R and G Scores"):
     fig.add_trace(go.Scatter(x=segment_x + segment_x[::-1], y=segment_upper + segment_lower[::-1], fill='toself', fillcolor=color, mode='none', showlegend=False))
     fig.update_yaxes(showgrid=True, gridcolor='lightgray', zeroline=True, zerolinewidth=2, zerolinecolor='gray')
     fig.update_layout(title='Financial Conditions: Net R and G Scores', plot_bgcolor='white', hovermode='x unified', legend_title_text='Legend')
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(apply_rubrics_plot_fonts(fig), use_container_width=True)
 
 # --- Attribution and Visualization Sections ---
 
@@ -248,7 +350,7 @@ with st.expander("Monetary Conditions Attribution (Weighted and Normalized)"):
         hovermode='x unified',
         showlegend=False
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(apply_rubrics_plot_fonts(fig), use_container_width=True)
 
 # Growth Conditions Attribution Plot
 with st.expander("Growth Conditions Attribution (Weighted and Normalized)"):
@@ -305,7 +407,7 @@ with st.expander("Growth Conditions Attribution (Weighted and Normalized)"):
         hovermode='x unified',
         showlegend=False
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(apply_rubrics_plot_fonts(fig), use_container_width=True)
 
 # --- Latest Period Attribution Bar Charts ---
 with st.expander("Latest Period Attribution Analysis"):
@@ -331,7 +433,7 @@ with st.expander("Latest Period Attribution Analysis"):
         yaxis=dict(automargin=True, tickfont=dict(size=16), showgrid=True, gridcolor='lightgray', gridwidth=0.5),
         xaxis=dict(showgrid=True, gridcolor='lightgray', gridwidth=0.5)
     )
-    st.plotly_chart(fig_R_latest, use_container_width=True)
+    st.plotly_chart(apply_rubrics_plot_fonts(fig_R_latest), use_container_width=True)
     
     # Latest Growth Conditions Attribution
     latest_period_G = G_weighted.iloc[-1][:-1].sort_values()
@@ -354,7 +456,7 @@ with st.expander("Latest Period Attribution Analysis"):
         yaxis=dict(automargin=True, tickfont=dict(size=16), showgrid=True, gridcolor='lightgray', gridwidth=0.5),
         xaxis=dict(showgrid=True, gridcolor='lightgray', gridwidth=0.5)
     )
-    st.plotly_chart(fig_G_latest, use_container_width=True)
+    st.plotly_chart(apply_rubrics_plot_fonts(fig_G_latest), use_container_width=True)
 
 # --- Comprehensive Dashboard ---
 with st.expander("Comprehensive Dashboard (All Charts)"):
@@ -448,7 +550,7 @@ with st.expander("Comprehensive Dashboard (All Charts)"):
     fig.update_xaxes(title_text="Contribution", row=1, col=2)
     fig.update_xaxes(title_text="Contribution", row=2, col=2)
     
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(apply_rubrics_plot_fonts(fig), use_container_width=True)
 
 # --- Expert Review and OpenAI GPT-4 Integration ---
 with st.expander("AI Expert Review and Model Analysis (OpenAI GPT-4)"):
