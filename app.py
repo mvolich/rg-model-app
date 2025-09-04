@@ -21,18 +21,20 @@ def inject_brand_css():
         --rb-grey:#D8D7DF; --rb-orange:#CF4520;
       }
       
-      /* Enforce Arial globally */
+      /* Global font + color */
       html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stSidebar"],
       [data-testid="stSidebarContent"], [data-testid="stMarkdownContainer"],
       h1, h2, h3, h4, h5, h6, p, div, span, label, input, textarea, select, button,
       .stText, .stDataFrame, .stMetric, .stTabs, .stButton, .stDownloadButton {
         font-family: Arial, Helvetica, sans-serif !important;
+        color: var(--rb-blue) !important;
       }
       [data-testid="stDataFrame"] * {
         font-family: Arial, Helvetica, sans-serif !important;
+        color: var(--rb-blue) !important;
       }
       
-      html, body, .stApp { background:#f8f9fa; color:#0b0c0c; }
+      html, body, .stApp { background:#f8f9fa; }
       header[data-testid="stHeader"] { background: transparent !important; }
 
       /* Header layout shared by RG & ROAM */
@@ -102,7 +104,7 @@ def render_brand_header(title="R-G Financial Conditions Model", subtitle=None, h
 def apply_rubrics_plot_fonts(fig):
     # DO NOT change any trace colors. Fonts/background only.
     fig.update_layout(
-        font=dict(family="Arial, Helvetica, sans-serif", size=13, color="#0b0c0c"),
+        font=dict(family="Arial, Helvetica, sans-serif", size=13, color="#001E4F"),
         paper_bgcolor="#FFFFFF",
         plot_bgcolor="#FFFFFF",
         title=dict(font=dict(size=16))
@@ -248,7 +250,7 @@ R_table_data = {
 df_R_table_full = pd.DataFrame(R_table_data)
 df_R_table_full['Short_Name'] = df_R_table_full.index.map(df_tickers.set_index('Ticker')['Short_Name'].to_dict())
 df_R_table_full = df_R_table_full[['Short_Name', 'Correlation with R_target', 'Coefficient (Beta) with R_target', 'Weight']].sort_values('Correlation with R_target', ascending=False)
-st.subheader("Table of R_vars Correlation, Coefficient (Beta) with R_target, and their Weights")
+st.subheader("Monetary Indicators (R): Correlations, Betas & Weights")
 st.dataframe(df_R_table_full, use_container_width=True)
 
 # --- Table of G_vars Correlation, Coefficient (Beta), and Weights ---
@@ -271,7 +273,7 @@ G_table_data_full = {
 df_G_table_full = pd.DataFrame(G_table_data_full)
 df_G_table_full['Short_Name'] = df_G_table_full.index.map(df_tickers.set_index('Ticker')['Short_Name'].to_dict())
 df_G_table_full = df_G_table_full[['Short_Name', 'Correlation with G_target', 'Coefficient (Beta) with G_target', 'Weight']].sort_values('Correlation with G_target', ascending=False)
-st.subheader("Table of G_vars Correlation, Coefficient (Beta) with G_target, and their Weights")
+st.subheader("Growth Indicators (G): Correlations, Betas & Weights")
 st.dataframe(df_G_table_full, use_container_width=True)
 
 # --- Financial Conditions Plot ---
@@ -563,14 +565,14 @@ fig.update_xaxes(title_text="Contribution", row=2, col=2)
 st.plotly_chart(apply_rubrics_plot_fonts(fig), use_container_width=True)
 
 # --- Expert Review and OpenAI GPT-4 Integration ---
-with st.expander("AI Expert Review and Model Analysis (OpenAI GPT-4)"):
-    if not openai_api_key:
-        st.warning("Please enter your OpenAI API key in the sidebar or add it to your Streamlit Cloud secrets to enable expert review.")
-    else:
-        openai.api_key = openai_api_key
+st.subheader("AI Expert Review and Model Analysis (OpenAI GPT-4)")
+if not openai_api_key:
+    st.warning("Please enter your OpenAI API key in the sidebar or add it to your Streamlit Cloud secrets to enable expert review.")
+else:
+    openai.api_key = openai_api_key
     
-    # Methodology Summary
-    methodology_summary = """
+# Methodology Summary
+methodology_summary = """
 Model Overview:
 
 The R-G financial conditions model provides insights into monetary and growth economic conditions:
@@ -585,14 +587,14 @@ Weighted using regression analysis with monthly interpolated GDP growth as the t
 
 Data undergoes monthly resampling, forward-filling, and Z-score normalization over a 120-month rolling window.
 """
-        
-    # Latest Metrics
-    latest_metrics = df_norm.iloc[-1].to_dict()
-    r_score = latest_metrics.get('R_score', 'Not available')
-    g_score = latest_metrics.get('G_score', 'Not available')
-    r_g_score_diff = r_score - g_score if isinstance(r_score, (int, float)) else 'Not available'
-    
-    metrics_summary = f"""
+
+# Latest Metrics
+latest_metrics = df_norm.iloc[-1].to_dict()
+r_score = latest_metrics.get('R_score', 'Not available')
+g_score = latest_metrics.get('G_score', 'Not available')
+r_g_score_diff = r_score - g_score if isinstance(r_score, (int, float)) else 'Not available'
+
+metrics_summary = f"""
 📈 Latest Model Metrics:
 
 | Metric                    | Score   |
@@ -603,20 +605,20 @@ Data undergoes monthly resampling, forward-filling, and Z-score normalization ov
 
 A positive R-G difference indicates tighter monetary conditions relative to economic growth.
 """
-    
-    # Historical Attribution
-    historical_scores = df_norm[['R_score', 'G_score']].tail(12).to_markdown()
-    historical_summary = f"""
+
+# Historical Attribution
+historical_scores = df_norm[['R_score', 'G_score']].tail(12).to_markdown()
+historical_summary = f"""
 📊 Historical Context (Last 12 Months):
 
 {historical_scores}
 """
-    
-    # Regression Weights
-    weights_R_table = df_weights_R_sorted.to_markdown()
-    weights_G_table = df_weights_G_sorted.to_markdown()
-    
-    regression_summary = f"""
+
+# Regression Weights
+weights_R_table = df_weights_R_sorted.to_markdown()
+weights_G_table = df_weights_G_sorted.to_markdown()
+
+regression_summary = f"""
 🔍 Regression Analysis Findings:
 
 Monetary Conditions (R) - Variable Weights:
@@ -627,17 +629,17 @@ Growth Conditions (G) - Variable Weights:
 
 These regression results clearly highlight key indicators influencing monetary and growth conditions.
 """
-    
-    # Indicator Short Names
-    short_names_dict = df_tickers.set_index('Ticker')['Short_Name'].to_dict()
-    indicator_details = '\n'.join([f"- {ticker}: {name}" for ticker, name in short_names_dict.items()])
-    indicator_summary = f"""
+
+# Indicator Short Names
+short_names_dict = df_tickers.set_index('Ticker')['Short_Name'].to_dict()
+indicator_details = '\n'.join([f"- {ticker}: {name}" for ticker, name in short_names_dict.items()])
+indicator_summary = f"""
 📚 Indicator Guide:
 {indicator_details}
 """
-    
-    # Economic Significance & Interpretation Query
-    prompt_economic_interpretation = f"""
+
+# Economic Significance & Interpretation Query
+prompt_economic_interpretation = f"""
 You are a PhD-level macroeconomist providing a highly detailed, structured briefing on the R-G Financial Conditions Model, explicitly contrasting Monetary (R) and Growth (G) conditions.
 
 {methodology_summary}
@@ -654,25 +656,25 @@ Structured Briefing Outline:
    - Provide intuitive explanations supported explicitly by recent quantitative data (latest metrics, historical values, regression weights).
    - Illustrate explicitly the implications of positive vs. negative R-G differences using current numerical examples.
 """
-    
-    try:
-        response_economic_interpretation = openai.chat.completions.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": "You are an expert macroeconomist providing quantitatively detailed, structured, and highly educational economic analyses."},
-                {"role": "user", "content": prompt_economic_interpretation}
-            ],
-            temperature=0.2,
-            max_tokens=3500
-        )
-        expert_review_economic_interpretation = response_economic_interpretation.choices[0].message.content
-        st.markdown("### 1. Economic Significance & Interpretation")
-        st.markdown(expert_review_economic_interpretation)
-    except Exception as e:
-        st.error(f"OpenAI API error: {e}")
-    
-    # Calculation Methodology & Indicator Selection Query
-    prompt_calculation_methodology = f"""
+
+try:
+    response_economic_interpretation = openai.chat.completions.create(
+        model="gpt-4",
+        messages=[
+            {"role": "system", "content": "You are an expert macroeconomist providing quantitatively detailed, structured, and highly educational economic analyses."},
+            {"role": "user", "content": prompt_economic_interpretation}
+        ],
+        temperature=0.2,
+        max_tokens=3500
+    )
+    expert_review_economic_interpretation = response_economic_interpretation.choices[0].message.content
+    st.markdown("### 1. Economic Significance & Interpretation")
+    st.markdown(expert_review_economic_interpretation)
+except Exception as e:
+    st.error(f"OpenAI API error: {e}")
+
+# Calculation Methodology & Indicator Selection Query
+prompt_calculation_methodology = f"""
 You are a PhD-level macroeconomist writing a highly detailed, structured briefing on the R-G Financial Conditions Model, explicitly contrasting Monetary (R) and Growth (G) conditions.
 
 {methodology_summary}
@@ -692,34 +694,34 @@ Structured Briefing Outline:
    - Provide a detailed rationale for selecting each indicator, emphasizing their quantitative contributions explicitly.
    - Explicitly explain the normalization approach (Z-score normalization with a 120-month rolling window) and its economic rationale.
 """
-    
-    try:
-        response_calculation_methodology = openai.chat.completions.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": "You are an expert macroeconomist providing quantitatively detailed, structured, and highly educational economic analyses."},
-                {"role": "user", "content": prompt_calculation_methodology}
-            ],
-            temperature=0.2,
-            max_tokens=3500
-        )
-        expert_review_calculation_methodology = response_calculation_methodology.choices[0].message.content
-        st.markdown("### 2. Calculation Methodology & Indicator Selection")
-        st.markdown(expert_review_calculation_methodology)
-    except Exception as e:
-        st.error(f"OpenAI API error: {e}")
-    
-    # Historical Trends & Attribution Analysis Query
-    expanded_historical_summary = df_norm[['R_score', 'G_score']].tail(12).to_markdown()
-    expanded_regression_summary = f"""
+
+try:
+    response_calculation_methodology = openai.chat.completions.create(
+        model="gpt-4",
+        messages=[
+            {"role": "system", "content": "You are an expert macroeconomist providing quantitatively detailed, structured, and highly educational economic analyses."},
+            {"role": "user", "content": prompt_calculation_methodology}
+        ],
+        temperature=0.2,
+        max_tokens=3500
+    )
+    expert_review_calculation_methodology = response_calculation_methodology.choices[0].message.content
+    st.markdown("### 2. Calculation Methodology & Indicator Selection")
+    st.markdown(expert_review_calculation_methodology)
+except Exception as e:
+    st.error(f"OpenAI API error: {e}")
+
+# Historical Trends & Attribution Analysis Query
+expanded_historical_summary = df_norm[['R_score', 'G_score']].tail(12).to_markdown()
+expanded_regression_summary = f"""
 Top Monetary Conditions:
 {df_weights_R_sorted.head(5).to_markdown()}
 
 Top Growth Conditions:
 {df_weights_G_sorted.head(5).to_markdown()}
 """
-    
-    prompt_historical_attribution = f"""
+
+prompt_historical_attribution = f"""
 You are a PhD-level macroeconomist providing a highly detailed, structured briefing on the R-G Financial Conditions Model, explicitly contrasting Monetary (R) and Growth (G) conditions.
 
 {expanded_regression_summary}
@@ -736,25 +738,25 @@ Historical Scores (Past 12 Months):
    - Explicitly reference months of highest and lowest scores, and largest R-G shifts.
    - Provide detailed analysis of economic implications of observed trends.
 """
-    
-    try:
-        response_historical_attribution = openai.chat.completions.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": "You are an expert macroeconomist providing a highly detailed, structured briefing on the R-G Financial Conditions Model, explicitly contrasting Monetary (R) and Growth (G) conditions."},
-                {"role": "user", "content": prompt_historical_attribution}
-            ],
-            temperature=0.2,
-            max_tokens=5000
-        )
-        expert_review_historical_attribution = response_historical_attribution.choices[0].message.content
-        st.markdown("### 3. Historical Trends & Attribution Analysis")
-        st.markdown(expert_review_historical_attribution)
-    except Exception as e:
-        st.error(f"OpenAI API error: {e}")
-    
-    # Critical Methodology Evaluation & Recommendations Query
-    prompt_standard = f"""
+
+try:
+    response_historical_attribution = openai.chat.completions.create(
+        model="gpt-4",
+        messages=[
+            {"role": "system", "content": "You are an expert macroeconomist providing a highly detailed, structured briefing on the R-G Financial Conditions Model, explicitly contrasting Monetary (R) and Growth (G) conditions."},
+            {"role": "user", "content": prompt_historical_attribution}
+        ],
+        temperature=0.2,
+        max_tokens=5000
+    )
+    expert_review_historical_attribution = response_historical_attribution.choices[0].message.content
+    st.markdown("### 3. Historical Trends & Attribution Analysis")
+    st.markdown(expert_review_historical_attribution)
+except Exception as e:
+    st.error(f"OpenAI API error: {e}")
+
+# Critical Methodology Evaluation & Recommendations Query
+prompt_standard = f"""
 You are a PhD-level macroeconomist providing a concise and practical evaluation and recommendations for the R-G Financial Conditions Model, based on the provided methodology and regression results.
 
 {methodology_summary}
@@ -773,22 +775,22 @@ Suggest clear, actionable methodological improvements to enhance model accuracy,
 
 Your response should be structured, insightful, and clearly incorporate the provided regression findings.
 """
-    
-    try:
-        response_standard = openai.chat.completions.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": "You are an expert macroeconomist providing concise, structured, and actionable economic analyses and recommendations."},
-                {"role": "user", "content": prompt_standard}
-            ],
-            temperature=0.3,
-            max_tokens=2000
-        )
-        expert_review_standard = response_standard.choices[0].message.content
-        st.markdown("### 4. Critical Methodology Evaluation & 5. Actionable Recommendations")
-        st.markdown(expert_review_standard)
-    except Exception as e:
-        st.error(f"OpenAI API error: {e}")
+
+try:
+    response_standard = openai.chat.completions.create(
+        model="gpt-4",
+        messages=[
+            {"role": "system", "content": "You are an expert macroeconomist providing concise, structured, and actionable economic analyses and recommendations."},
+            {"role": "user", "content": prompt_standard}
+        ],
+        temperature=0.3,
+        max_tokens=2000
+    )
+    expert_review_standard = response_standard.choices[0].message.content
+    st.markdown("### 4. Critical Methodology Evaluation & 5. Actionable Recommendations")
+    st.markdown(expert_review_standard)
+except Exception as e:
+    st.error(f"OpenAI API error: {e}")
 
 # --- Model Summary ---
 st.subheader("Model Summary and Latest Metrics")
