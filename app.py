@@ -20,8 +20,19 @@ def inject_brand_css():
         --rb-blue:#001E4F; --rb-mblue:#2C5697; --rb-lblue:#7BA4DB;
         --rb-grey:#D8D7DF; --rb-orange:#CF4520;
       }
-      html, body, .stApp { background:#f8f9fa; color:#0b0c0c;
-        font-family:Arial, sans-serif !important; }
+      
+      /* Enforce Arial globally */
+      html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stSidebar"],
+      [data-testid="stSidebarContent"], [data-testid="stMarkdownContainer"],
+      h1, h2, h3, h4, h5, h6, p, div, span, label, input, textarea, select, button,
+      .stText, .stDataFrame, .stMetric, .stTabs, .stButton, .stDownloadButton {
+        font-family: Arial, Helvetica, sans-serif !important;
+      }
+      [data-testid="stDataFrame"] * {
+        font-family: Arial, Helvetica, sans-serif !important;
+      }
+      
+      html, body, .stApp { background:#f8f9fa; color:#0b0c0c; }
       header[data-testid="stHeader"] { background: transparent !important; }
 
       /* Header layout shared by RG & ROAM */
@@ -91,7 +102,7 @@ def render_brand_header(title="R-G Financial Conditions Model", subtitle=None, h
 def apply_rubrics_plot_fonts(fig):
     # DO NOT change any trace colors. Fonts/background only.
     fig.update_layout(
-        font=dict(family='Arial, sans-serif', size=13, color="#0b0c0c"),
+        font=dict(family="Arial, Helvetica, sans-serif", size=13, color="#0b0c0c"),
         paper_bgcolor="#FFFFFF",
         plot_bgcolor="#FFFFFF",
         title=dict(font=dict(size=16))
@@ -101,7 +112,7 @@ def apply_rubrics_plot_fonts(fig):
 inject_brand_css()
 
 render_brand_header(
-    title="R-G Model",
+    title="R-G Financial Conditions Model",
     subtitle="Regime-Guided Financial Conditions & Attribution"
 )
 
@@ -627,7 +638,7 @@ These regression results clearly highlight key indicators influencing monetary a
         
         # Economic Significance & Interpretation Query
         prompt_economic_interpretation = f"""
-You are a PhD-level macroeconomist providing a highly detailed, structured briefing on the R-G Model, explicitly contrasting Monetary (R) and Growth (G) conditions.
+You are a PhD-level macroeconomist providing a highly detailed, structured briefing on the R-G Financial Conditions Model, explicitly contrasting Monetary (R) and Growth (G) conditions.
 
 {methodology_summary}
 
@@ -662,7 +673,7 @@ Structured Briefing Outline:
         
         # Calculation Methodology & Indicator Selection Query
         prompt_calculation_methodology = f"""
-You are a PhD-level macroeconomist writing a highly detailed, structured briefing on the R-G Model, explicitly contrasting Monetary (R) and Growth (G) conditions.
+You are a PhD-level macroeconomist writing a highly detailed, structured briefing on the R-G Financial Conditions Model, explicitly contrasting Monetary (R) and Growth (G) conditions.
 
 {methodology_summary}
 
@@ -709,7 +720,7 @@ Top Growth Conditions:
 """
         
         prompt_historical_attribution = f"""
-You are a PhD-level macroeconomist providing a highly detailed, structured briefing on the R-G Model, explicitly contrasting Monetary (R) and Growth (G) conditions.
+You are a PhD-level macroeconomist providing a highly detailed, structured briefing on the R-G Financial Conditions Model, explicitly contrasting Monetary (R) and Growth (G) conditions.
 
 {expanded_regression_summary}
 
@@ -730,7 +741,7 @@ Historical Scores (Past 12 Months):
             response_historical_attribution = openai.chat.completions.create(
                 model="gpt-4",
                 messages=[
-                    {"role": "system", "content": "You are an expert macroeconomist providing a highly detailed, structured briefing on the R-G Model, explicitly contrasting Monetary (R) and Growth (G) conditions."},
+                    {"role": "system", "content": "You are an expert macroeconomist providing a highly detailed, structured briefing on the R-G Financial Conditions Model, explicitly contrasting Monetary (R) and Growth (G) conditions."},
                     {"role": "user", "content": prompt_historical_attribution}
                 ],
                 temperature=0.2,
@@ -744,7 +755,7 @@ Historical Scores (Past 12 Months):
         
         # Critical Methodology Evaluation & Recommendations Query
         prompt_standard = f"""
-You are a PhD-level macroeconomist providing a concise and practical evaluation and recommendations for the R-G Model, based on the provided methodology and regression results.
+You are a PhD-level macroeconomist providing a concise and practical evaluation and recommendations for the R-G Financial Conditions Model, based on the provided methodology and regression results.
 
 {methodology_summary}
 
