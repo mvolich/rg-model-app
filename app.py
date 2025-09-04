@@ -8,7 +8,7 @@ import base64
 import os
 
 st.set_page_config(
-    page_title="R-G Model",
+    page_title="R-G Financial Conditions Model",
     layout="wide",
     page_icon="https://rubricsam.com/wp-content/uploads/2021/01/cropped-rubrics-logo-tight.png",
 )
@@ -16,13 +16,12 @@ st.set_page_config(
 def inject_brand_css():
     st.markdown("""
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
       :root{
         --rb-blue:#001E4F; --rb-mblue:#2C5697; --rb-lblue:#7BA4DB;
         --rb-grey:#D8D7DF; --rb-orange:#CF4520;
       }
       html, body, .stApp { background:#f8f9fa; color:#0b0c0c;
-        font-family:Inter, "Segoe UI", Roboto, Arial, sans-serif !important; }
+        font-family:Arial, sans-serif !important; }
       header[data-testid="stHeader"] { background: transparent !important; }
 
       /* Header layout shared by RG & ROAM */
@@ -75,7 +74,7 @@ def _logo_src():
     # Fallback to hosted
     return "https://rubricsam.com/wp-content/uploads/2021/01/cropped-rubrics-logo-tight.png"
 
-def render_brand_header(title="R-G Model", subtitle=None, href="https://rubricsam.com"):
+def render_brand_header(title="R-G Financial Conditions Model", subtitle=None, href="https://rubricsam.com"):
     src = _logo_src()
     st.markdown(f"""
     <div class="rb-header">
@@ -92,7 +91,7 @@ def render_brand_header(title="R-G Model", subtitle=None, href="https://rubricsa
 def apply_rubrics_plot_fonts(fig):
     # DO NOT change any trace colors. Fonts/background only.
     fig.update_layout(
-        font=dict(family='Inter, "Segoe UI", Roboto, Arial, sans-serif', size=13, color="#0b0c0c"),
+        font=dict(family='Arial, sans-serif', size=13, color="#0b0c0c"),
         paper_bgcolor="#FFFFFF",
         plot_bgcolor="#FFFFFF",
         title=dict(font=dict(size=16))
